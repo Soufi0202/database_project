@@ -2,18 +2,32 @@ import pandas as pd
 import spacy
 from concurrent.futures import ProcessPoolExecutor
 import numpy as np
+import os
 
-# Load spaCy's English model
-try:
-    nlp = spacy.load("en_core_web_sm")
-except:
-    import spacy.cli
-    spacy.cli.download("en_core_web_sm")
-    nlp = spacy.load("en_core_web_sm")
+def load_spacy_model():
+    """
+    Dynamically load or download SpaCy's en_core_web_sm model in a writable directory.
+    """
+    model_name = "en_core_web_sm"
+    model_path = "/tmp/" + model_name  # Use /tmp for Streamlit Cloud
+
+    try:
+        # Try to load the model from the default path
+        nlp = spacy.load(model_name)
+    except OSError:
+        # If loading fails, download the model to the /tmp directory
+        from spacy.cli import download
+        download(model_name, model_path=model_path)
+        nlp = spacy.load(model_path)
+    
+    return nlp
+
+# Load the SpaCy model
+nlp = load_spacy_model()
 
 def clean_text_with_spacy(text, stopwords_set=None):
     """
-    Clean and preprocess text using spaCy:
+    Clean and preprocess text using SpaCy:
     - Tokenize text
     - Remove punctuation, stopwords, and non-alphabetic tokens
     - Convert to lowercase
@@ -22,7 +36,7 @@ def clean_text_with_spacy(text, stopwords_set=None):
     if not isinstance(text, str):
         return ""
 
-    # Process the text using spaCy
+    # Process the text using SpaCy
     doc = nlp(text)
 
     # Filter tokens
@@ -38,14 +52,14 @@ def clean_text_with_spacy(text, stopwords_set=None):
 
 def process_chunk_with_spacy(chunk):
     """
-    Process a chunk of data in parallel using spaCy.
+    Process a chunk of data in parallel using SpaCy.
     """
     return chunk.apply(clean_text_with_spacy)
 
 def transform_data(input_file, output_file, processes=4):
     """
     Load crawled data, clean the text content, and save the transformed data.
-    Supports parallel processing with spaCy for large datasets.
+    Supports parallel processing with SpaCy for large datasets.
     """
     # Load the crawled data
     try:
@@ -59,7 +73,7 @@ def transform_data(input_file, output_file, processes=4):
     print(f"Loaded {len(df)} rows from '{input_file}'.")
 
     # Clean the text content using parallel processing
-    print("Cleaning text content with spaCy...")
+    print("Cleaning text content with SpaCy...")
     chunks = np.array_split(df["Content"], processes)
 
     with ProcessPoolExecutor(max_workers=processes) as executor:
