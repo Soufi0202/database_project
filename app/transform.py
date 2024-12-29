@@ -1,59 +1,59 @@
 import pandas as pd
-import spacy
+import re
 from concurrent.futures import ProcessPoolExecutor
 import numpy as np
-import os
 
-def load_spacy_model():
-    try:
-        # Try to load the model
-        return spacy.load("en_core_web_sm")
-    except OSError:
-        # Download the model dynamically
-        from spacy.cli import download
-        download("en_core_web_sm")
-        return spacy.load("en_core_web_sm")
+# Define a list of stopwords manually or load from an external file
+STOPWORDS = {
+    "the", "a", "an", "and", "or", "in", "on", "at", "of", "to", "for", "is", "are",
+    "was", "were", "be", "been", "it", "that", "this", "with", "by", "from", "as",
+    "has", "have", "had", "but", "if", "not", "about", "so", "out", "up", "down",
+    "over", "under", "after", "before", "more", "less", "can", "will", "just",
+    "do", "does", "did", "you", "we", "they", "he", "she", "I", "me", "my", "your",
+    "his", "her", "their", "its", "our", "who", "what", "which", "when", "where",
+    "why", "how"
+}
 
-
-
-# Load the SpaCy model
-nlp = load_spacy_model()
-
-def clean_text_with_spacy(text, stopwords_set=None):
+def clean_text(text, stopwords_set=STOPWORDS):
     """
-    Clean and preprocess text using SpaCy:
-    - Tokenize text
-    - Remove punctuation, stopwords, and non-alphabetic tokens
+    Clean and preprocess text:
+    - Remove special characters, numbers, and punctuation
     - Convert to lowercase
-    - Optionally lemmatize tokens
+    - Remove extra whitespace
+    - Remove stopwords
     """
     if not isinstance(text, str):
         return ""
 
-    # Process the text using SpaCy
-    doc = nlp(text)
+    # Compile regex patterns for efficiency
+    special_char_re = re.compile(r"[^a-zA-Z\s]")
+    extra_whitespace_re = re.compile(r"\s+")
 
-    # Filter tokens
-    cleaned_tokens = [
-        token.lemma_.lower()  # Lemmatize and convert to lowercase
-        for token in doc
-        if not token.is_stop  # Remove stopwords
-        and not token.is_punct  # Remove punctuation
-        and token.is_alpha  # Keep alphabetic tokens only
-    ]
+    # Remove all special characters, numbers, and punctuation
+    text = special_char_re.sub("", text)
 
-    return " ".join(cleaned_tokens)
+    # Convert to lowercase
+    text = text.lower()
 
-def process_chunk_with_spacy(chunk):
+    # Remove extra whitespace
+    text = extra_whitespace_re.sub(" ", text).strip()
+
+    # Tokenize and remove stopwords
+    words = text.split()
+    cleaned_words = [word for word in words if word not in stopwords_set]
+
+    return " ".join(cleaned_words)
+
+def process_chunk(chunk, stopwords_set=STOPWORDS):
     """
-    Process a chunk of data in parallel using SpaCy.
+    Process a chunk of data in parallel.
     """
-    return chunk.apply(clean_text_with_spacy)
+    return chunk.apply(lambda text: clean_text(text, stopwords_set=stopwords_set))
 
 def transform_data(input_file, output_file, processes=4):
     """
     Load crawled data, clean the text content, and save the transformed data.
-    Supports parallel processing with SpaCy for large datasets.
+    Supports parallel processing for large datasets.
     """
     # Load the crawled data
     try:
@@ -67,11 +67,11 @@ def transform_data(input_file, output_file, processes=4):
     print(f"Loaded {len(df)} rows from '{input_file}'.")
 
     # Clean the text content using parallel processing
-    print("Cleaning text content with SpaCy...")
+    print("Cleaning text content...")
     chunks = np.array_split(df["Content"], processes)
 
     with ProcessPoolExecutor(max_workers=processes) as executor:
-        cleaned_chunks = list(executor.map(process_chunk_with_spacy, chunks))
+        cleaned_chunks = list(executor.map(process_chunk, chunks))
 
     df["Processed_Content"] = pd.concat(cleaned_chunks)
 
