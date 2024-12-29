@@ -5,22 +5,16 @@ import numpy as np
 import os
 
 def load_spacy_model():
-    """
-    Dynamically load or download SpaCy's en_core_web_sm model in a writable directory.
-    """
-    model_name = "en_core_web_sm"
-    model_path = "/tmp/" + model_name  # Use /tmp for Streamlit Cloud
-
     try:
-        # Try to load the model from the default path
-        nlp = spacy.load(model_name)
+        # Try to load the model
+        return spacy.load("en_core_web_sm")
     except OSError:
-        # If loading fails, download the model to the /tmp directory
+        # Download the model dynamically
         from spacy.cli import download
-        download(model_name, model_path=model_path)
-        nlp = spacy.load(model_path)
-    
-    return nlp
+        download("en_core_web_sm")
+        return spacy.load("en_core_web_sm")
+
+
 
 # Load the SpaCy model
 nlp = load_spacy_model()
